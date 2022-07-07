@@ -1,11 +1,10 @@
 import pyodbc
 
 from PySide2 import QtCore, QtWidgets
-from PySide2.QtSql import QSqlTableModel, QSqlQuery
+from PySide2.QtSql import QSqlTableModel, QSqlQuery, QSqlDatabase
 
 from ui import SQL_mainWindows
 from settings import *
-
 
 
 class MySQLViewerForm(QtWidgets.QMainWindow):
@@ -162,25 +161,40 @@ class MySQLViewerForm(QtWidgets.QMainWindow):
         if self.connection is None:
             return
 
-        self.model = QSqlTableModel(self)
+        connection_str = f"DRIVER={self.driver_name};Server={self.server_name};Port={self.port};DATABASE={self.db_name};UID={self.sql_login};PWD={self.sql_pass}"
+        db = QSqlDatabase.addDatabase('QODBC')
+        db.setDatabaseName(connection_str)
+        db.open()
 
-        if cursor := self.connection.cursor():
+        qry = QSqlQuery(db)
+        # todo тут нужно указать запрос. можно указать поля если нужно. так же я бы сделал настройку для выбора ограничения TOP100, TOP1000...
+        qry.prepare(f'SELECT TOP 100 * FROM {self.ui.comboBox_table_name.currentText()}')
+        qry.exec_()
 
-            col_lst = self.get_count_col_in_table(self.ui.comboBox_table_name.currentText())
+        model = QSqlTableModel()
+        model.setQuery(qry)
+        self.ui.tableView_database_table.setModel(model)
+        self.ui.tableView_database_table.horizontalHeader().setSectionsMovable(True)
 
-            self.model.setTable(self.ui.comboBox_table_name.currentText())
-
-            self.model.select()
-
-            #цикл по кол-ву столбцов для формирования модели
-            for id, col_name in enumerate(col_lst):
-                self.model.setHeaderData(id, QtCore.Qt.Horizontal, col_name)
-
-            self.ui.tableView_database_table.setModel(self.model)
-            self.ui.tableView_database_table.horizontalHeader().setSectionsMovable(True)
-            self.ui.tableView_database_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-
-            cursor.close()
+        # self.model = QSqlTableModel(self)
+        #
+        # if cursor := self.connection.cursor():
+        #
+        #     col_lst = self.get_count_col_in_table(self.ui.comboBox_table_name.currentText())
+        #
+        #     self.model.setTable(self.ui.comboBox_table_name.currentText())
+        #
+        #     self.model.select()
+        #
+        #     #цикл по кол-ву столбцов для формирования модели
+        #     for id, col_name in enumerate(col_lst):
+        #         self.model.setHeaderData(id, QtCore.Qt.Horizontal, col_name)
+        #
+        #     self.ui.tableView_database_table.setModel(self.model)
+        #     self.ui.tableView_database_table.horizontalHeader().setSectionsMovable(True)
+        #     self.ui.tableView_database_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        #
+        #     cursor.close()
 
     def change_to_auth(self):
         auth_methods = self.ui.groupBox_authentication.findChildren(QtWidgets.QRadioButton)
